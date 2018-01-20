@@ -1,0 +1,110 @@
+<html>
+    <head>
+	<style>
+		html, body {
+			margin: 0;
+			width: 100%;
+			height: 100%;
+		}
+		.wrapper {
+			position: relative;
+			display: flex;
+			width: 100%;
+			height: 100%;
+			justify-content: center;
+		}
+		canvas {
+			position: absolute;
+			top: 0;
+			left: 0;
+			left: 50%;
+			top: 50%;
+			transform: translate(-50%,-50%);
+			height: 100%;
+		}
+		/*input[type="range"] {
+			pointer-events: none;
+			z-index: 2;
+		}*/
+	</style>
+    </head>
+    <body>
+		<div class="wrapper">
+			<canvas id="canvas1"></canvas>
+			<canvas id="canvas2"></canvas>
+			<!--<input id="left" type="range" orient="vertical">
+			<input id="right" type="range" orient="vertical">-->
+		</div>
+        <script type="text/javascript" src="https://rawgit.com/131/h264-live-player/master/vendor/dist/http-live-player.js"></script>
+        <script>
+			let canvas = document.querySelector("#canvas1");
+			let overlayCanvas = document.querySelector("#canvas2");
+
+			let ctx = overlayCanvas.getContext("2d");
+			ctx.font = '24px serif';
+			ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);			
+
+            var wsavc = new WSAvcPlayer(canvas, "webgl");
+
+            let protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+			wsavc.connect(protocol + '//' + window.location.host + '/video-stream');
+			
+			this.wsavc.ws.addEventListener("message", (evt) => {
+				if(typeof evt.data == "string") {
+					parsed = JSON.parse(evt.data);
+					if (parsed["action"] == "init") {
+						overlayCanvas.width = parsed["width"];
+						overlayCanvas.height = parsed["height"];
+
+						ctx.fillStyle = '#ff0000';
+						ctx.fillText("ANN not running", 10, 10);
+					} else if (parsed["ann"]) {
+						ctx.font = '24px serif';
+						ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+						//ctx.fillText(JSON.stringify(parsed), 10, 50);
+						
+						let x1 = 150;
+						let y1 = overlayCanvas.height - 50;
+						let offset = 50;
+						let sensor = 0;
+						let height = 100;
+						let outputRadius = 12;
+
+						let inputs = parsed["ann"]["inputs"];
+						let outputs = parsed["ann"]["outputs"];
+
+						for (let theta = 0; theta <= 180; theta += 180 / (inputs.length - 1)) {
+							let radius = inputs[sensor];
+							let angle = (theta + 180) * (Math.PI / 180);
+							ctx.beginPath();							
+							ctx.moveTo(x1 + offset * Math.cos(angle), y1 + offset * Math.sin(angle));
+							ctx.lineTo(x1 + (offset + radius) * Math.cos(angle), y1 + (offset + radius) * Math.sin(angle));
+							ctx.strokeStyle = '#0000ff';
+							ctx.lineWidth = 10;
+							ctx.closePath();
+							ctx.stroke();
+							sensor += 1;
+						}
+						
+						for (let output = 0; output < outputs.length; output++) {
+							ctx.beginPath();
+							ctx.moveTo(overlayCanvas.width - 50 * (output + 1), 15);
+							ctx.lineTo(overlayCanvas.width - 50 * (output + 1), 15 + height);
+							ctx.strokeStyle = '#ff0000';
+							ctx.lineWidth = 5;
+							ctx.closePath();
+							ctx.stroke();
+
+							ctx.beginPath();
+							ctx.arc(overlayCanvas.width - 50 * (output + 1), 15 + height * (1 - outputs[output]), outputRadius, 0, Math.PI*2, true); 
+							ctx.closePath();
+							ctx.fill();
+						}						
+						//document.querySelector("#left").value = parsed["ann"]["outputs"][0] * 100;
+						//document.querySelector("#right").value = parsed["ann"]["outputs"][1] * 100;
+					}
+				}
+			});
+        </script>
+    </body>
+</html>
